@@ -1,0 +1,74 @@
+# GitHub Actions CI/CD Pipeline for DLC Testing
+
+name: DLC Container Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-container:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest boto3 numpy
+
+      - name: Run functionality tests
+        run: |
+          pytest Claude_tutorials/Testing/test_container_functionality.py -v
+
+      - name: Run correctness tests
+        run: |
+          pytest Claude_tutorials/Testing/test_inference_correctness.py -v
+
+      - name: Run performance tests
+        run: |
+          pytest Claude_tutorials/Testing/test_performance_regression.py -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: test-results/
+
+  deploy-staging:
+    needs: test-container
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment"
+          # Add deployment script here
+
+  deploy-production:
+    needs: test-container
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment"
+          # Add deployment script here
